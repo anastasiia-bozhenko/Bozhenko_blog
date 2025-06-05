@@ -1,9 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Blog\Admin\CategoryController;
+use App\Http\Controllers\Blog\Admin\PostController;
 use App\Http\Controllers\RestTestController;
-use App\Http\Controllers\Blog\PostController;
-use App\Http\Controllers\Blog\Admin\CategoryController; // Додайте цей рядок
+use Illuminate\Support\Facades\Route;
+
+// Додайте цей рядок
 
 Route::get('/', function () {
     return view('welcome');
@@ -35,8 +37,13 @@ $groupData = [
 ];
 Route::group($groupData, function () {
     // BlogCategory
-    $methods = ['index', 'edit', 'store', 'update', 'create']; // Додайте 'create' сюди
+    $methods = ['index', 'edit', 'store', 'update', 'create'];
     Route::resource('categories', CategoryController::class)
         ->only($methods)
         ->names('blog.admin.categories');
+
+    // BlogPost // Додано
+    Route::resource('posts', PostController::class)
+        ->except(['show']) // Не створювати маршрут для метода show (детальна сторінка однієї статті)
+        ->names('blog.admin.posts');
 });

@@ -1,21 +1,33 @@
 <?php
 
-namespace App\Http\Controllers\Blog;
+namespace App\Http\Controllers\Blog\Admin;
 
+use App\Repositories\BlogPostRepository;
+use App\Models\BlogPost;
 use Illuminate\Http\Request;
-use App\Models\BlogPost; // Додаємо цей рядок
-use App\Http\Controllers\Controller;
+
+// Додаємо цей рядок
 
 class PostController extends BaseController
 {
+    /**
+     * @var BlogPostRepository
+     */
+    private $blogPostRepository;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->blogPostRepository = app(BlogPostRepository::class); // app вертає об'єкт класа
+    }
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $items = BlogPost::all(); // Обов'язково має бути
+        $paginator = $this->blogPostRepository->getAllWithPaginate(); // Отримуємо дані через репозиторій
 
-        return view('blog.posts.index', compact('items')); // Обов'язково має бути
+        return view('blog.admin.posts.index', compact('paginator')); // Передаємо у представлення
     }
 
     /**
