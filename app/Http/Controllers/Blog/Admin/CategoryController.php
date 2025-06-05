@@ -3,22 +3,36 @@
 namespace App\Http\Controllers\Blog\Admin;
 
 //use App\Http\Controllers\Controller; // Закоментувати цей рядок
-use App\Http\Controllers\Blog\BaseController;
+use App\Http\Controllers\Blog\Admin\BaseController;
 use App\Models\BlogCategory;
 use Illuminate\Support\Str;
 //use Illuminate\Http\Request;
 use App\Http\Requests\BlogCategoryUpdateRequest;
 use App\Http\Requests\BlogCategoryCreateRequest;
+use App\Repositories\BlogCategoryRepository;
+
 
 class CategoryController extends BaseController // Замінити на extends BaseController
 {
+    /**
+     * @var BlogCategoryRepository
+     */
+    private $blogCategoryRepository;
+
+    public function __construct()
+    {
+        parent::__construct(); // Викликаємо конструктор батьківського класу (BaseController)
+
+        // Ініціалізуємо репозиторій через Service Container
+        $this->blogCategoryRepository = app(BlogCategoryRepository::class);
+    }
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        //dd(__METHOD__);
-        $paginator = BlogCategory::paginate(5);
+        // $paginator = BlogCategory::paginate(5); // Закоментовано
+        $paginator = $this->blogCategoryRepository->getAllWithPaginate(5); // Використовуємо репозиторій
 
         return view('blog.admin.categories.index', compact('paginator'));
     }
@@ -28,9 +42,9 @@ class CategoryController extends BaseController // Замінити на extends
      */
     public function create()
     {
-        //dd(__METHOD__);
-        $item = new BlogCategory(); // Створюємо новий порожній об'єкт категорії
-        $categoryList = BlogCategory::all(); // Отримуємо список всіх категорій
+        $item = new BlogCategory();
+        // $categoryList = BlogCategory::all(); // Закоментовано
+        $categoryList = $this->blogCategoryRepository->getForComboBox(); // Використовуємо репозиторій
 
         return view('blog.admin.categories.edit', compact('item', 'categoryList'));
     }
@@ -77,11 +91,15 @@ class CategoryController extends BaseController // Замінити на extends
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(string $id)
+    public function edit($id)
     {
-        //dd(__METHOD__);
-        $item = BlogCategory::findOrFail($id);
-        $categoryList = BlogCategory::all();
+        $item = $this->blogCategoryRepository->getEdit($id); // Отримуємо елемент через репозиторій
+        if (empty($item)) { // якщо репозиторій не знайде наш id
+            abort(404); // Генеруємо 404 помилку
+        }
+        // Передаємо $item->parent_id до getForComboBox, хоча в поточній реалізації
+        // getForComboBox не використовує цей параметр. Можливо, для майбутньої фільтрації.
+        $categoryList = $this->blogCategoryRepository->getForComboBox($item->parent_id);
 
         return view('blog.admin.categories.edit', compact('item', 'categoryList'));
     }
@@ -92,7 +110,8 @@ class CategoryController extends BaseController // Замінити на extends
     public function update(BlogCategoryUpdateRequest $request, $id)
     {
         //dd(__METHOD__);
-        $item = BlogCategory::find($id);
+        // $item = BlogCategory::find($id); // Замінено
+        $item = $this->blogCategoryRepository->getEdit($id); // Отримуємо елемент через репозиторій
         if (empty($item)) { //якщо ід не знайдено
             return back() //redirect back
             ->withErrors(['msg' => "Запис id=[{$id}] не знайдено"]) //видати помилку
