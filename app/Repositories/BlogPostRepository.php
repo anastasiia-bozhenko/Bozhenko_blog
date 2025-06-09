@@ -29,7 +29,6 @@ class BlogPostRepository extends CoreRepository
      */
     public function getAllWithPaginate(): LengthAwarePaginator
     {
-        // Вибираємо тільки необхідні стовпці для відображення у списку
         $columns = [
             'id',
             'title',
@@ -40,10 +39,19 @@ class BlogPostRepository extends CoreRepository
             'category_id',
         ];
 
-        $result = $this->startConditions()
+        $result = $this->startConditions($perPage = null)
             ->select($columns)
-            ->orderBy('id', 'DESC') // Сортуємо за ID у спадаючому порядку
-            ->paginate(25); // 25 статей на сторінку
+            ->orderBy('id', 'DESC')
+            // Додаємо eager loading (жадібне завантаження) зв'язків 'category' та 'user'
+            ->with([
+                'category' => function ($query) {
+                    // Вибираємо тільки 'id' та 'title' з таблиці категорій
+                    $query->select(['id', 'title']);
+                },
+                // Коротка форма для вибору тільки 'id' та 'name' з таблиці користувачів
+                'user:id,name',
+            ])
+            ->paginate($perPage);
 
         return $result;
     }

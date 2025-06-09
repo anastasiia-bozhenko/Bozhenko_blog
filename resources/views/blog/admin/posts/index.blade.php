@@ -1,4 +1,4 @@
-@extends('layouts.app') {{-- Переконайтеся, що тут правильний базовий макет, який ви використовуєте (раніше був layouts.main, змініть на layouts.app, якщо ви його використовували для категорій) --}}
+@extends('layouts.app') {{-- Переконайтеся, що тут правильний базовий макет, який ви використовуєте --}}
 
 @section('content')
     <div class="container">
@@ -9,7 +9,7 @@
                 </nav>
                 <div class="card">
                     <div class="card-body">
-                        <table class="table table-hover mx-auto w-auto">
+                        <table class="table table-hover">
                             <thead>
                             <tr>
                                 <th>#</th>
@@ -24,8 +24,10 @@
                                 @php /** @var \App\Models\BlogPost $post */ @endphp
                                 <tr @if (!$post->is_published) style="background-color: #ccc;" @endif>
                                     <td>{{ $post->id }}</td>
-                                    <td>{{ $post->user_id }}</td> {{-- Надалі замінимо на ім'я користувача --}}
-                                    <td>{{ $post->category_id }}</td> {{-- Надалі замінимо на назву категорії --}}
+                                    {{-- Виводимо ім'я користувача зі зв'язаних таблиць --}}
+                                    <td>{{ $post->user->name }}</td>
+                                    {{-- Виводимо назву категорії зі зв'язаних таблиць --}}
+                                    <td>{{ $post->category->title }}</td>
                                     <td>
                                         <a href="{{ route('blog.admin.posts.edit', $post->id) }}">
                                             {{ $post->title }}
