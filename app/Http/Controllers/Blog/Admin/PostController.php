@@ -76,37 +76,30 @@ class PostController extends BaseController
     {
         // Знаходимо пост за ID
         $item = $this->blogPostRepository->getEdit($id);
-        if (empty($item)) { // Якщо ID не знайдено
-            return back() // Перенаправляємо назад на попередню сторінку
-            ->withErrors(['msg' => "Запис id=[{$id}] не знайдено"]) // Видаємо повідомлення про помилку
-            ->withInput(); // Повертаємо введені користувачем дані, щоб вони не зникли
+        if (empty($item)) {
+            return back()
+                ->withErrors(['msg' => "Запис id=[{$id}] не знайдено"])
+                ->withInput();
         }
 
-        // Отримуємо всі дані з форми, які пройшли валідацію
         $data = $request->all();
 
-        // Якщо поле 'slug' (псевдонім) порожнє, генеруємо його з 'title'
-        if (empty($data['slug'])) {
-            $data['slug'] = Str::slug($data['title']);
-        }
+        // Логіка для генерації slug та published_at тепер в BlogPostObserver
 
-        // Якщо поле 'published_at' порожнє І пост має бути опублікований (is_published == 1)
-        if (empty($item->published_at) && $data['is_published']) {
-            $data['published_at'] = Carbon::now(); // Встановлюємо поточну дату та час
-        }
+        // Оновлюємо властивості моделі з даних, отриманих із запиту
+        // IMPORTANT: оскільки Observer буде працювати з моделлю $item,
+        // ми повинні оновити її властивості перед викликом update()
+        $item->fill($data); // Заповнюємо модель даними, щоб Observer міг з ними працювати
 
-        // Оновлюємо дані моделі посту та зберігаємо їх у базі даних
-        $result = $item->update($data);
+        $result = $item->save(); // Викликаємо save() замість update($data), щоб запустити події Observer
 
         if ($result) {
-            // Якщо оновлення успішне, перенаправляємо на сторінку редагування з повідомленням про успіх
             return redirect()
                 ->route('blog.admin.posts.edit', $item->id)
                 ->with(['success' => 'Успішно збережено']);
         } else {
-            // Якщо сталася помилка при збереженні, перенаправляємо назад з повідомленням про помилку
             return back()
-                ->withErrors(['msg' => 'Помилка збереження']) // Використовуємо withErrors для відображення помилки
+                ->withErrors(['msg' => 'Помилка збереження'])
                 ->withInput();
         }
     }

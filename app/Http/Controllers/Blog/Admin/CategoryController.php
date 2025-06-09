@@ -49,36 +49,6 @@ class CategoryController extends BaseController // Замінити на extends
         return view('blog.admin.categories.edit', compact('item', 'categoryList'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(BlogCategoryCreateRequest $request)
-    {
-        //dd(__METHOD__);
-        $data = $request->input(); // отримуємо масив даних, які надійшли з форми
-
-        if (empty($data['slug'])) { // якщо псевдонім порожній
-            $data['slug'] = Str::slug($data['title']); // генеруємо псевдонім
-        }
-
-        // Встановлюємо значення за замовчуванням для description, якщо воно порожнє
-        // (Оскільки ми зробили його nullable у правилах валідації)
-        if (empty($data['description'])) {
-            $data['description'] = null;
-        }
-
-        $item = (new BlogCategory())->create($data); // створюємо об'єкт і додаємо в БД
-
-        if ($item) {
-            return redirect()
-                ->route('blog.admin.categories.edit', [$item->id])
-                ->with(['success' => 'Успішно збережено']);
-        } else {
-            return back()
-                ->withErrors(['msg' => 'Помилка збереження'])
-                ->withInput();
-        }
-    }
 
     /**
      * Display the specified resource.
@@ -107,23 +77,62 @@ class CategoryController extends BaseController // Замінити на extends
     /**
      * Update the specified resource in storage.
      */
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  BlogCategoryCreateRequest  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(BlogCategoryCreateRequest $request)
+    {
+        $data = $request->input();
+
+        // ВИДАЛЯЄМО ЦЕЙ КОД:
+        // if (empty($data['slug'])) {
+        //     $data['slug'] = Str::slug($data['title']);
+        // }
+
+        $item = (new Model())->create($data); // Створення моделі. Observer буде викликаний
+
+        if ($item) {
+            return redirect()
+                ->route('blog.admin.categories.edit', $item->id)
+                ->with(['success' => 'Успішно збережено']);
+        } else {
+            return back()
+                ->withErrors(['msg' => 'Помилка збереження'])
+                ->withInput();
+        }
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  BlogCategoryUpdateRequest  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
     public function update(BlogCategoryUpdateRequest $request, $id)
     {
-        //dd(__METHOD__);
-        // $item = BlogCategory::find($id); // Замінено
-        $item = $this->blogCategoryRepository->getEdit($id); // Отримуємо елемент через репозиторій
-        if (empty($item)) { //якщо ід не знайдено
-            return back() //redirect back
-            ->withErrors(['msg' => "Запис id=[{$id}] не знайдено"]) //видати помилку
-            ->withInput(); //повернути дані
+        $item = $this->blogCategoryRepository->getEdit($id);
+        if (empty($item)) {
+            return back()
+                ->withErrors(['msg' => "Запис id=[{$id}] не знайдено"])
+                ->withInput();
         }
 
-        $data = $request->all(); //отримаємо масив даних, які надійшли з форми
-        if (empty($data['slug'])) { //якщо псевдонім порожній
-            $data['slug'] = Str::slug($data['title']); //генеруємо псевдонім
-        }
+        $data = $request->all();
 
-        $result = $item->update($data);  //оновлюємо дані об'єкта і зберігаємо в БД
+        // ВИДАЛЯЄМО ЦЕЙ КОД:
+        // if (empty($data['slug'])) {
+        //     $data['slug'] = Str::slug($data['title']);
+        // }
+
+        // IMPORTANT: оскільки Observer буде працювати з моделлю $item,
+        // ми повинні оновити її властивості перед викликом save()
+        $item->fill($data); // Заповнюємо модель даними
+
+        $result = $item->save(); // Викликаємо save() для запуску подій Observer
 
         if ($result) {
             return redirect()
@@ -131,7 +140,7 @@ class CategoryController extends BaseController // Замінити на extends
                 ->with(['success' => 'Успішно збережено']);
         } else {
             return back()
-                ->with(['msg' => 'Помилка збереження'])
+                ->withErrors(['msg' => 'Помилка збереження'])
                 ->withInput();
         }
     }
