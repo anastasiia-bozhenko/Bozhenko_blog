@@ -4,6 +4,7 @@ use App\Http\Controllers\Blog\Admin\CategoryController;
 use App\Http\Controllers\Blog\Admin\PostController;
 use App\Http\Controllers\RestTestController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DiggingDeeperController;
 
 // Додайте цей рядок
 
@@ -47,3 +48,10 @@ Route::group($groupData, function () {
         ->except(['show']) // Не створювати маршрут для метода show (детальна сторінка однієї статті)
         ->names('blog.admin.posts');
 });
+
+// routes/web.php
+Route::group(['prefix' => 'digging_deeper'], function () {
+    Route::get('collections', [DiggingDeeperController::class, 'collections'])
+        ->name('digging_deeper.collections');
+});
+
