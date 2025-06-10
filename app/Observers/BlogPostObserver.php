@@ -31,7 +31,8 @@ class BlogPostObserver
     public function creating(BlogPost $blogPost)
     {
         $this->setPublishedAt($blogPost); // Також встановлюємо дату публікації при створенні
-        $this->setSlug($blogPost);         // Також встановлюємо slug при створенні
+        $this->setSlug($blogPost);
+        $this->setContentHtml($blogPost);// Також встановлюємо slug при створенні
     }
 
     /**
@@ -60,6 +61,29 @@ class BlogPostObserver
         // Якщо slug порожній, генеруємо його з title
         if (empty($blogPost->slug)) {
             $blogPost->slug = Str::slug($blogPost->title); // Використовуємо Str::slug()
+        }
+    }
+
+    /**
+     * Заповнює поле content_html на основі content_raw.
+     * У цьому прикладі просто копіюємо content_raw в content_html.
+     * Якщо потрібна обробка Markdown, тут слід використовувати відповідну бібліотеку.
+     *
+     * @param  \App\Models\BlogPost  $blogPost
+     * @return void
+     */
+    protected function setContentHtml(BlogPost $blogPost)
+    {
+        // Перевіряємо, чи існує content_raw і не є null
+        if (isset($blogPost->content_raw)) {
+            // Для простоти, просто копіюємо content_raw.
+            // У реальному додатку тут могла б бути логіка конвертації Markdown в HTML
+            // наприклад: $blogPost->content_html = Markdown::convert($blogPost->content_raw);
+            $blogPost->content_html = $blogPost->content_raw;
+        } else {
+            // Якщо content_raw відсутній, встановлюємо content_html як порожній рядок
+            // Щоб уникнути помилки "doesn't have a default value"
+            $blogPost->content_html = '';
         }
     }
 }

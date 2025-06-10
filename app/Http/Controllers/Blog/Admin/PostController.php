@@ -3,15 +3,21 @@
 namespace App\Http\Controllers\Blog\Admin;
 
 use App\Http\Controllers\Controller; // Переконайтеся, що BaseController імпортований
+use App\Models\BlogPost;
 use App\Repositories\BlogPostRepository;
 use App\Repositories\BlogCategoryRepository; // ДОДАЄМО: Імпорт репозиторію категорій
 use App\Http\Requests\BlogPostUpdateRequest; // ДОДАЄМО: Імпорт Form Request для оновлення
 use Carbon\Carbon; // ДОДАЄМО: Імпорт класу Carbon для роботи з датами
 use Illuminate\Support\Str; // ДОДАЄМО: Імпорт хелпера Str для генерації slug
 use Illuminate\Http\Request; // Можливо, вам знадобиться цей use, якщо метод store() використовує Request
+use App\Jobs\BlogPostAfterCreateJob;
+use App\Jobs\BlogPostAfterDeleteJob;
+use App\Http\Requests\BlogPostCreateRequest;
+use Illuminate\Foundation\Bus\DispatchesJobs;
 
 class PostController extends BaseController
 {
+    use DispatchesJobs;
     /**
      * @var BlogPostRepository
      */
@@ -38,7 +44,7 @@ class PostController extends BaseController
      */
     public function index()
     {
-        $paginator = $this->blogPostRepository->getPaginatedList(20);
+        $paginator = $this->blogPostRepository->getAllWithPaginate(20);
 
         return view('blog.admin.posts.index', compact('paginator'));
     }
@@ -74,7 +80,6 @@ class PostController extends BaseController
      */
     public function update(BlogPostUpdateRequest $request, $id)
     {
-        // Знаходимо пост за ID
         $item = $this->blogPostRepository->getEdit($id);
         if (empty($item)) {
             return back()
@@ -83,15 +88,8 @@ class PostController extends BaseController
         }
 
         $data = $request->all();
-
-        // Логіка для генерації slug та published_at тепер в BlogPostObserver
-
-        // Оновлюємо властивості моделі з даних, отриманих із запиту
-        // IMPORTANT: оскільки Observer буде працювати з моделлю $item,
-        // ми повинні оновити її властивості перед викликом update()
-        $item->fill($data); // Заповнюємо модель даними, щоб Observer міг з ними працювати
-
-        $result = $item->save(); // Викликаємо save() замість update($data), щоб запустити події Observer
+        $item->fill($data);
+        $result = $item->save();
 
         if ($result) {
             return redirect()
@@ -105,20 +103,61 @@ class PostController extends BaseController
     }
 
 
+
     /**
      * Show the form for creating a new resource.
      */
     public function create()
     {
-        //
+        $item = new BlogPost(); // Створюємо новий, порожній екземпляр моделі BlogPost
+
+        // Отримуємо список категорій для випадаючого списку
+        $categoryList = $this->blogCategoryRepository->getForComboBox();
+
+        // Повертаємо представлення 'blog.admin.posts.edit',
+        // передаючи порожній $item та $categoryList.
+        // Шаблон 'edit' буде обробляти це як створення нового посту,
+        // оскільки $item->exists буде false.
+        return view('blog.admin.posts.edit', compact('item', 'categoryList'));
     }
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(BlogPostCreateRequest $request) // Припустимо, що у вас є BlogCategoryCreateRequest
     {
-        //
+        $data = $request->input();
+        // ... (ваша логіка для створення, якщо вона є)
+
+        // Важливо: переконайтеся, що $item створюється ДО відправлення Job
+        $item = new \App\Models\BlogPost(); // Створюємо новий екземпляр моделі
+        $item->fill($data); // Заповнюємо даними з запиту
+        $item->user_id = auth()->id() ?? 1; // Припустимо, що user_id встановлюється тут
+        $item->category_id = $data['category_id'] ?? 1; // Припустимо, що category_id встановлюється тут
+
+        if (empty($item->slug)) {
+            $item->slug = Str::slug($item->title);
+        }
+        if (empty($item->published_at) && $item->is_published) {
+            $item->published_at = Carbon::now();
+        }
+
+        $result = $item->save(); // Зберігаємо пост у базі даних
+
+
+        if ($result) {
+            // ДОДАЄМО ЦЕЙ КОД: Відправляємо завдання в чергу
+            $job = new BlogPostAfterCreateJob($item); // Передаємо об'єкт BlogPost
+            $this->dispatch($job); // Або dispatch($job);
+
+            return redirect()
+                ->route('blog.admin.posts.edit', $item->id)
+                ->with(['success' => 'Успішно створено']);
+        } else {
+            return back()
+                ->withErrors(['msg' => 'Помилка створення'])
+                ->withInput();
+        }
     }
 
     /**
@@ -134,8 +173,31 @@ class PostController extends BaseController
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy($id)
     {
-        //
+        // Знайдіть пост для видалення (або просто ID, якщо логіка дозволяє)
+        $item = $this->blogPostRepository->getEdit($id);
+
+        if (empty($item)) {
+            return back()
+                ->withErrors(['msg' => "Запис id=[{$id}] не знайдено для видалення"])
+                ->withInput();
+        }
+
+        // Виконайте видалення (м'яке або жорстке)
+        $result = $item->delete(); // Використовуємо delete() для SoftDeletes
+
+        if ($result) {
+            // ДОДАЄМО ЦЕЙ КОД: Відправляємо завдання в чергу з затримкою
+            BlogPostAfterDeleteJob::dispatch($id)->delay(Carbon::now()->addSeconds(20)); // Затримка на 20 секунд
+
+            return redirect()
+                ->route('blog.admin.posts.index') // Перенаправляємо на список постів
+                ->with(['success' => 'Успішно видалено']);
+        } else {
+            return back()
+                ->withErrors(['msg' => 'Помилка видалення'])
+                ->withInput();
+        }
     }
 }
