@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\BlogPost; // Імпортуємо модель BlogPost для роботи з нею
 use Carbon\Carbon;      // Імпортуємо Carbon для роботи з датами
+use App\Jobs\ProcessVideoJob; // ДОДАЄМО: Імпорт Job для обробки відео
+use App\Jobs\GenerateCatalog\GenerateCatalogMainJob; // ДОДАЄМО: Імпорт головного Job для каталогу
 
 class DiggingDeeperController extends Controller
 {
@@ -144,5 +146,39 @@ class DiggingDeeperController extends Controller
         // dd(compact('sortedSimpleCollection', 'sortedAscCollection', 'sortedDescCollection')); // Закоментовано для нормальної роботи
 
         return response()->json(['message' => 'Колекції оброблені без помилок']);
+    }
+    /**
+     * Метод для демонстрації відправлення простого Job.
+     *
+     * @link http://localhost:8000/digging_deeper/process-video
+     */
+    public function processVideo()
+    {
+        // Відправляємо завдання ProcessVideoJob до черги.
+        ProcessVideoJob::dispatch();
+
+        // Приклади опцій (закоментовані, як у вашій інструкції):
+        // ->delay(10)          // Затримка виконання завдання на 10 секунд
+        // ->onQueue('name_of_queue') // Відправлення завдання до конкретної черги з назвою 'name_of_queue'
+
+        return response()->json(['message' => 'Завдання ProcessVideoJob відправлено до черги.']);
+    }
+
+    /**
+     * Метод для демонстрації відправлення ланцюжка завдань (Job Chaining).
+     * Це головне завдання для запуску процесу генерації каталогу.
+     *
+     * @link http://localhost:8000/digging_deeper/prepare-catalog
+     *
+     * Приклад запуску воркера для цієї черги:
+     * php artisan queue:listen --queue=generate-catalog --tries=3 --delay=10
+     */
+    public function prepareCatalog()
+    {
+        // Відправляємо головне завдання генерації каталогу.
+        // Всередині цього завдання буде побудовано ланцюжок інших завдань.
+        GenerateCatalogMainJob::dispatch();
+
+        return response()->json(['message' => 'Завдання GenerateCatalogMainJob відправлено до черги.']);
     }
 }
